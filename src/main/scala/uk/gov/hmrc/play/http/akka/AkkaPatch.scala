@@ -16,19 +16,15 @@
 
 package uk.gov.hmrc.play.http.akka
 
+import akka.http.scaladsl.model.HttpMethods
 import play.api.libs.json.Writes
 import uk.gov.hmrc.http._
 
 import scala.concurrent.Future
 
 trait AkkaPatch extends CorePatch with PatchHttpTransport with AkkaRequest {
-
   override def doPatch[A](url: String, body: A)(implicit rds: Writes[A], hc: HeaderCarrier): Future[HttpResponse] = {
-    import play.api.libs.concurrent.Execution.Implicits.defaultContext
-
     val jsonBody = rds.writes(body).toString()
-
-    akkaClient.singleRequest(buildRequest(url).withEntity(jsonBody)).map (new AkkaHttpResponse(_))
+    doRequest(buildRequest(url, HttpMethods.PATCH).withEntity(jsonBody))
   }
-
 }

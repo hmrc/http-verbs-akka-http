@@ -34,7 +34,6 @@ object Concurrent {
 }
 
 trait TestHttpCore extends CorePost with CoreGet with CorePut with CorePatch with CoreDelete with Request {
-
   override def applicableHeaders(url: String)(implicit hc: HeaderCarrier): Seq[(String, String)] = Nil
 
   override def POST[I, O](url: String, body: I, headers: Seq[(String, String)])(implicit wts: Writes[I], rds: HttpReads[O], hc: HeaderCarrier, ec: ExecutionContext): Future[O] = ???

@@ -33,7 +33,7 @@ class WSProxyConfigurationSpec extends WordSpecLike with Matchers with BeforeAnd
     "Dev.httpProxy.username" -> "user",
     "Dev.httpProxy.password" -> "secret") ++ flag.fold(Map.empty[String, Any])(flag => proxyFlagConfiguredTo(flag))
 
-  val proxy = DefaultWSProxyServer(
+  val proxy = DefaultAkkaProxyServer(
     protocol = Some("https"),
     host = "localhost",
     port = 7979,

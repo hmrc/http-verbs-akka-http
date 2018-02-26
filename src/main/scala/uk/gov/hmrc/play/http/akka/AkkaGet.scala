@@ -16,19 +16,15 @@
 
 package uk.gov.hmrc.play.http.akka
 
+import akka.http.scaladsl.model.{HttpMethods}
 import uk.gov.hmrc.http._
 
 import scala.concurrent.Future
 
 trait AkkaGet extends AkkaRequest with CoreGet with GetHttpTransport {
-
   override def doGet(url: String)(implicit  hc: HeaderCarrier): Future[HttpResponse] = {
-    import play.api.libs.concurrent.Execution.Implicits.defaultContext
-
-    buildRequest(url).get().map(new AkkaHttpResponse(_))
+    doRequest(buildRequest(url, HttpMethods.GET))
   }
-
-
 }
 
 

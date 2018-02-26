@@ -16,15 +16,13 @@
 
 package uk.gov.hmrc.play.http.akka
 
+import akka.http.scaladsl.model.HttpMethods
 import uk.gov.hmrc.http._
 
 import scala.concurrent.Future
 
 trait AkkaDelete extends CoreDelete with DeleteHttpTransport with AkkaRequest {
-
- override def doDelete(url: String)(implicit hc: HeaderCarrier): Future[HttpResponse] = {
-    import play.api.libs.concurrent.Execution.Implicits.defaultContext
-    buildRequest(url).delete().map(new AkkaHttpResponse(_))
+  override def doDelete(url: String)(implicit hc: HeaderCarrier): Future[HttpResponse] = {
+    doRequest(buildRequest(url, HttpMethods.DELETE))
   }
-
 }

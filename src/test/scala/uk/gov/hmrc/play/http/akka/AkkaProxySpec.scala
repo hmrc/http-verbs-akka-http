@@ -16,35 +16,56 @@
 
 package uk.gov.hmrc.play.http.akka
 
+import akka.actor.ActorSystem
+import akka.http.scaladsl.model.HttpRequest
+import akka.stream.ActorMaterializer
 import com.github.tomakehurst.wiremock.client.VerificationException
 import com.github.tomakehurst.wiremock.client.WireMock._
 import org.scalatest.mock.MockitoSugar
 import org.scalatest.{BeforeAndAfterAll, Matchers, OptionValues, WordSpecLike}
 import play.api.Play
-import play.api.libs.ws.WSProxyServer
 import play.api.test.FakeApplication
 import uk.gov.hmrc.http.HeaderCarrier
+import uk.gov.hmrc.play.test.Concurrent.await
 
-class WsProxySpec extends WordSpecLike with Matchers with MockitoSugar with OptionValues with BeforeAndAfterAll {
+class AkkaProxySpec extends WordSpecLike with Matchers with MockitoSugar with OptionValues with BeforeAndAfterAll {
   implicit val hc = HeaderCarrier()
 
   lazy val fakeApplication = FakeApplication()
 
-  "A proxied get request" should {
+  "A proxied request" should {
+
     "correctly make a request via the specified proxy server" in new Setup {
 
-      val wSProxyServer = mock[WSProxyServer]
-      
+      val akkaProxy: AkkaProxyServer = DefaultAkkaProxyServer(
+        host = host,
+        port = 5555,
+        principal = Some("user"),
+        password = Some("password"))
+
+//      val akkaProxy: AkkaProxyServer = DefaultAkkaProxyServer(
+//        host = host,
+//        port = proxyPort,
+//        principal = Some("user"),
+//        password = Some("password"))
+
       object ProxiedGet extends AkkaProxy {
-
+        override implicit def system: ActorSystem = ActorSystem()
+        override def materializer = ActorMaterializer()
         override def applicableHeaders(url: String)(implicit hc: HeaderCarrier): Seq[(String, String)] = Nil
-
-        def akkaProxyServer = Some(wSProxyServer)
+        override def akkaProxyServer = Some(akkaProxy)
       }
 
-      val request = ProxiedGet.buildRequest("http://example.com")
+      withServers {
+        setupEndpointExpectations()
 
-      request.proxyServer.value shouldBe(wSProxyServer)
+        val responseFuture = ProxiedGet.doRequest(HttpRequest(uri = fullResourceUrl))
+
+        await(responseFuture).body shouldBe responseData
+
+        assertEndpointWasCalled()
+        assertCallViaProxy()
+      }
     }
   }
 
@@ -52,15 +73,22 @@ class WsProxySpec extends WordSpecLike with Matchers with MockitoSugar with Opti
     "still work by making the request without using a proxy server" in new Setup {
 
       object ProxiedGet extends AkkaProxy {
-
+        override implicit def system: ActorSystem = ActorSystem()
+        override def materializer = ActorMaterializer()
         override def applicableHeaders(url: String)(implicit hc: HeaderCarrier): Seq[(String, String)] = Nil
-
-        def wsProxyServer = None
+        override def akkaProxyServer = None
       }
 
-      val request = ProxiedGet.buildRequest("http://example.com")
+      withServers {
+        setupEndpointExpectations()
 
-      request.proxyServer shouldBe(None)
+        val responseFuture = ProxiedGet.doRequest(HttpRequest(uri = fullResourceUrl))
+
+        await(responseFuture).body shouldBe responseData
+
+        assertEndpointWasCalled()
+        assertProxyNotUsed()
+      }
     }
   }
 
@@ -80,6 +108,9 @@ class WsProxySpec extends WordSpecLike with Matchers with MockitoSugar with Opti
         .withHeader("Content-Type", "text/plain")
         .withBody(responseData)))
 
+      // Handle CONNECT request
+      proxyMock.register(any(urlMatching("/")).willReturn(aResponse()))
+
       proxyMock.register(get(urlMatching(resourcePath))
         .willReturn(aResponse().proxiedFrom(endpointBaseUrl)))
     }
@@ -89,7 +120,7 @@ class WsProxySpec extends WordSpecLike with Matchers with MockitoSugar with Opti
     }
 
     def assertCallViaProxy() {
-      endpointMock.verifyThat(getRequestedFor(urlEqualTo(resourcePath)))
+      proxyMock.verifyThat(getRequestedFor(urlEqualTo(resourcePath)))
     }
 
     def assertProxyNotUsed() {

@@ -56,11 +56,10 @@ private object AppDependencies {
     lazy val test: Seq[ModuleID] = ???
   }
 
-
-
   object Test {
     def apply() = new TestDependencies {
       override lazy val test = Seq(
+        "com.typesafe.akka" %% "akka-slf4j" % "2.3.14",
         "com.typesafe.play" % "play-test_2.11" %  PlayVersion.current % scope,
         "com.typesafe.play" % "play-specs2_2.11" %  PlayVersion.current % scope,
         "commons-codec" % "commons-codec" % "1.7" % scope,

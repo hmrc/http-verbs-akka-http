@@ -16,16 +16,12 @@
 
 package uk.gov.hmrc.play.http.akka
 
+import play.api.libs.json.JsValue
 import uk.gov.hmrc.http.HttpResponse
 
-class AkkaHttpResponse(akkaResponse: AkkaHttpResponse) extends HttpResponse {
-  override def allHeaders: Map[String, Seq[String]] = akkaResponse.allHeaders
-
-  override def status = akkaResponse.status
-
-  override def json = akkaResponse.json
-
-  override def body = akkaResponse.body
-}
+case class AkkaHttpResponse(override val allHeaders: Map[String, Seq[String]],
+                             override val status: Int,
+                             override val json: JsValue,
+                             override val body: String) extends HttpResponse
 
 trait AkkaHttp extends AkkaGet with AkkaPut with AkkaPost with AkkaDelete with AkkaPatch

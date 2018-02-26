@@ -16,19 +16,23 @@
 
 package uk.gov.hmrc.play.connectors
 
+import akka.http.scaladsl.model.HttpHeader.ParsingResult.Ok
+import akka.http.scaladsl.model.{HttpHeader, HttpRequest}
 import uk.gov.hmrc.http.HeaderCarrier
-import uk.gov.hmrc.play.http.akka.AkkaRequest
+
+import scala.collection.immutable
 
 trait RequestBuilder {
-  def buildRequest(url: String)(implicit hc: HeaderCarrier): AkkaRequest
+  def buildRequest(url: String)(implicit hc: HeaderCarrier): HttpRequest
 }
 
 trait AkkaRequestBuilder extends RequestBuilder {
+  def buildRequest(url: String)(implicit hc: HeaderCarrier): HttpRequest = {
+    val headers = hc.headers
+      .map { case (key, value) => HttpHeader.parse(key, value) }
+      .collect { case Ok(h, _) => h }
+      .to[immutable.Seq]
 
-  def buildRequest(url: String)(implicit hc: HeaderCarrier): AkkaRequest = WS.url(url).withHeaders(hc.headers: _*)
-}
-
-trait AkkaClientRequestBuilder extends RequestBuilder {
-  this: AkkaClientProvider =>
-  def buildRequest(url: String)(implicit hc: HeaderCarrier): AkkaRequest = client.url(url).withHeaders(hc.headers: _*)
+    HttpRequest(uri = url).withHeaders(headers)
+  }
 }

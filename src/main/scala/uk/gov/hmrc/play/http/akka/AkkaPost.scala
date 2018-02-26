@@ -16,38 +16,41 @@
 
 package uk.gov.hmrc.play.http.akka
 
-import play.api.libs.json.{Json, Writes}
-import play.api.mvc.Results
+import akka.http.scaladsl.model.HttpHeader.ParsingResult.Ok
+import akka.http.scaladsl.model.{FormData, HttpCharsets, HttpHeader, HttpMethods}
+import play.api.libs.json.Writes
 import uk.gov.hmrc.http._
 
+import scala.collection.immutable
 import scala.concurrent.Future
 
-
 trait AkkaPost extends CorePost with PostHttpTransport with AkkaRequest {
+  override def doPost[A](url: String, body: A, headers: Seq[(String, String)])(implicit rds: Writes[A], hc: HeaderCarrier): Future[HttpResponse] = {
+    val jsonBody = rds.writes(body).toString()
 
-  override def doPost[A](url: String, body: A, headers: Seq[(String,String)])(implicit rds: Writes[A], hc: HeaderCarrier): Future[HttpResponse] = {
+    val hs = headers.map { case (key, value) => HttpHeader.parse(key, value) }
+      .collect { case Ok(h, _) => h }
+      .to[immutable.Seq]
 
-    import play.api.libs.concurrent.Execution.Implicits.defaultContext
-
-    buildRequest(url).withHeaders(headers: _*).post(Json.toJson(body)).map(new AkkaHttpResponse(_))
+    doRequest(buildRequest(url, HttpMethods.POST).withHeadersAndEntity(hs, jsonBody))
   }
 
-  override def doFormPost(url: String, body: Map[String,Seq[String]])(implicit hc: HeaderCarrier): Future[HttpResponse] = {
-    import play.api.libs.concurrent.Execution.Implicits.defaultContext
+  override def doFormPost(url: String, body: Map[String, Seq[String]])(implicit hc: HeaderCarrier): Future[HttpResponse] = {
+    val data = body.flatMap { case (key, value) => value.map(v => (key, v)) }
 
-    buildRequest(url).post(body).map(new AkkaHttpResponse(_))
+    doRequest(buildRequest(url, HttpMethods.POST)
+      .withEntity(FormData(data).toEntity(HttpCharsets.`UTF-8`)))
   }
 
-  override def doPostString(url: String, body: String, headers: Seq[(String,String)])(implicit hc: HeaderCarrier): Future[HttpResponse] = {
-    import play.api.libs.concurrent.Execution.Implicits.defaultContext
+  override def doPostString(url: String, body: String, headers: Seq[(String, String)])(implicit hc: HeaderCarrier): Future[HttpResponse] = {
+    val hs = headers.map { case (key, value) => HttpHeader.parse(key, value) }
+      .collect { case Ok(h, _) => h }
+      .to[immutable.Seq]
 
-    buildRequest(url).withHeaders(headers: _*).post(body).map(new AkkaHttpResponse(_))
+    doRequest(buildRequest(url, HttpMethods.POST).withHeadersAndEntity(hs, body))
   }
 
   override def doEmptyPost[A](url: String)(implicit hc: HeaderCarrier): Future[HttpResponse] = {
-    import play.api.http.Writeable._
-    import play.api.libs.concurrent.Execution.Implicits.defaultContext
-
-    buildRequest(url).post(Results.EmptyContent()).map(new AkkaHttpResponse(_))
+    doRequest(buildRequest(url, HttpMethods.POST))
   }
 }

@@ -19,6 +19,8 @@ package uk.gov.hmrc.play.http
 import java.net.{ServerSocket, URI}
 import java.util.concurrent.TimeoutException
 
+import _root_.akka.actor.ActorSystem
+import _root_.akka.stream.ActorMaterializer
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
 import org.webbitserver.handler.{DelayedHttpHandler, StringHttpHandler}
@@ -49,7 +51,10 @@ class HttpTimeoutSpec extends WordSpecLike with Matchers with ScalaFutures with 
   "HttpCalls" should {
 
     "be gracefully timeout when no response is received within the 'timeout' frame" in {
-      val http = new AkkaHttp with TestHttpCore
+      val http = new AkkaHttp with TestHttpCore {
+        override implicit def system = ActorSystem()
+        override def materializer = ActorMaterializer()
+      }
 
       // get an unused port
       val ss = new ServerSocket(0)
